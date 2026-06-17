@@ -54,3 +54,25 @@ test('rejects empty option name', async () => {
     .send({ name: '', password: 'testpass' });
   expect(res.status).toBe(400);
 });
+
+test('returns 404 for unknown poll code', async () => {
+  const res = await request(app)
+    .post('/api/polls/unkn-0000/options')
+    .send({ name: 'Python', password: 'testpass' });
+  expect(res.status).toBe(404);
+});
+
+test('broadcasts option_added with correct shape', async () => {
+  const poll = await seedPoll(pool, { code: 'test-AB12', password: 'testpass' });
+  const res = await request(app)
+    .post('/api/polls/test-AB12/options')
+    .send({ name: 'Rust', password: 'testpass' });
+  expect(res.status).toBe(201);
+  expect(mockWs.broadcast).toHaveBeenCalledWith(
+    'test-AB12',
+    expect.objectContaining({
+      type: 'option_added',
+      option: expect.objectContaining({ vote_count: 0 }),
+    })
+  );
+});
