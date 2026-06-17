@@ -6,16 +6,17 @@ interface Props {
   suggestions: string[];
   selected: string;
   onSelect: (code: string) => void;
+  topic?: string;
 }
 
-export function CodeSuggestions({ suggestions: initial, selected, onSelect }: Props) {
+export function CodeSuggestions({ suggestions: initial, selected, onSelect, topic }: Props) {
   const [suggestions, setSuggestions] = useState(initial);
   const [loading, setLoading] = useState(false);
 
   async function regenerate() {
     setLoading(true);
     try {
-      const res = await api.getCodeSuggestions();
+      const res = await api.getCodeSuggestions(topic);
       setSuggestions(res.suggestions);
       onSelect(res.suggestions[0]);
     } finally {

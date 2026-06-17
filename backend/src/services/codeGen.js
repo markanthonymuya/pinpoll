@@ -50,16 +50,34 @@ function generateCode() {
   return `${word}-${suffix}`;
 }
 
-async function generateSuggestions(pool) {
+function extractKeyword(topic) {
+  if (!topic) return null;
+  const words = topic.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/)
+    .filter(w => w.length >= 4)
+    .sort((a, b) => b.length - a.length);
+  return words.length > 0 ? words[0].slice(0, 7) : null;
+}
+
+async function generateSuggestions(pool, topic) {
+  const keyword = extractKeyword(topic);
   const suggestions = [];
+
+  if (keyword) {
+    for (let i = 0; i < 5 && suggestions.length === 0; i++) {
+      let suffix = '';
+      for (let j = 0; j < 4; j++) suffix += SUFFIX_CHARS[Math.floor(Math.random() * SUFFIX_CHARS.length)];
+      const code = `${keyword}-${suffix}`;
+      const { rows } = await pool.query('SELECT 1 FROM polls WHERE code = $1', [code]);
+      if (rows.length === 0) suggestions.push(code);
+    }
+  }
+
   let attempts = 0;
   while (suggestions.length < 3 && attempts < 30) {
     attempts++;
     const code = generateCode();
     const { rows } = await pool.query('SELECT 1 FROM polls WHERE code = $1', [code]);
-    if (rows.length === 0 && !suggestions.includes(code)) {
-      suggestions.push(code);
-    }
+    if (rows.length === 0 && !suggestions.includes(code)) suggestions.push(code);
   }
   return suggestions;
 }

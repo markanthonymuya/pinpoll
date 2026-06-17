@@ -2,8 +2,8 @@
 import { useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { PollDisplay } from '@/components/PollDisplay';
-import { usePollVoteCounts } from '@/hooks/usePollVoteCounts';
-import type { Poll, PollOption } from '@/lib/types';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import type { Poll, PollOption, WsEvent } from '@/lib/types';
 
 export default function ManagePage({ params }: { params: { code: string } }) {
   const { code } = params;
@@ -11,7 +11,7 @@ export default function ManagePage({ params }: { params: { code: string } }) {
   const [authed, setAuthed] = useState(false);
   const [authError, setAuthError] = useState('');
   const [poll, setPoll] = useState<Poll | null>(null);
-  const [initialOptions, setInitialOptions] = useState<PollOption[]>([]);
+  const [initialOptions, setInitialOptions] = useState<PollOption[]>([]); // kept to seed options on auth
   const [addName, setAddName] = useState('');
   const [addingOption, setAddingOption] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -20,9 +20,23 @@ export default function ManagePage({ params }: { params: { code: string } }) {
   const [deleteCodeEntry, setDeleteCodeEntry] = useState('');
   const [error, setError] = useState('');
   const [postCloseAction, setPostCloseAction] = useState<'keep' | 'delete' | null>(null);
+  const [options, setOptions] = useState<PollOption[]>([]);
+  const [wsClosed, setWsClosed] = useState(false);
 
-  const { options, pollClosed } = usePollVoteCounts(initialOptions, code);
-  const isClosed = poll?.status === 'closed' || pollClosed;
+  const isClosed = poll?.status === 'closed' || wsClosed;
+
+  const handleWsEvent = useCallback((e: WsEvent) => {
+    if (e.type === 'vote_cast') {
+      setOptions(prev => prev.map(o => o.id === e.option_id ? { ...o, vote_count: o.vote_count + 1 } : o));
+    } else if (e.type === 'option_added') {
+      setOptions(prev => [...prev, e.option]);
+    } else if (e.type === 'poll_closed') {
+      setWsClosed(true);
+    }
+    // tally_tap intentionally omitted — handled optimistically in handleTally
+  }, []);
+
+  useWebSocket(code, handleWsEvent);
 
   async function authenticate() {
     setAuthError('');
@@ -31,6 +45,7 @@ export default function ManagePage({ params }: { params: { code: string } }) {
       const data = await api.getPoll(code);
       setPoll(data.poll);
       setInitialOptions(data.options);
+      setOptions(data.options);
       setAuthed(true);
     } catch (err: unknown) {
       setAuthError((err as Error).message);
@@ -38,10 +53,14 @@ export default function ManagePage({ params }: { params: { code: string } }) {
   }
 
   const handleTally = useCallback(async (option_id: string) => {
+    // Optimistic: show +1 immediately without waiting for WS round-trip
+    setOptions(prev => prev.map(o => o.id === option_id ? { ...o, vote_count: o.vote_count + 1 } : o));
     setError('');
     try {
       await api.tallyTap(code, { option_id, password });
     } catch (err: unknown) {
+      // Revert optimistic increment on failure
+      setOptions(prev => prev.map(o => o.id === option_id ? { ...o, vote_count: o.vote_count - 1 } : o));
       setError((err as Error).message);
     }
   }, [code, password]);
@@ -52,7 +71,8 @@ export default function ManagePage({ params }: { params: { code: string } }) {
     setError('');
     try {
       const { url } = await api.searchUnsplash(addName).catch(() => ({ url: null }));
-      await api.addOption(code, { name: addName.trim(), password, image_url: url ?? undefined });
+      const { option } = await api.addOption(code, { name: addName.trim(), password, image_url: url ?? undefined });
+      setOptions(prev => [...prev, option]);
       setAddName('');
     } catch (err: unknown) {
       setError((err as Error).message);

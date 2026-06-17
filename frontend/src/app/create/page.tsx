@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CodeSuggestions } from '@/components/CodeSuggestions';
 import { api } from '@/lib/api';
@@ -32,14 +32,13 @@ export default function CreatePage() {
   const [error, setError] = useState('');
   const [createdPoll, setCreatedPoll] = useState<Poll | null>(null);
 
-  useEffect(() => {
-    api.getCodeSuggestions()
-      .then((r) => {
-        setCodeSuggestions(r.suggestions);
-        setSelectedCode(r.suggestions[0] ?? '');
-      })
-      .catch(() => {});
-  }, []);
+  async function loadCodeSuggestions() {
+    try {
+      const r = await api.getCodeSuggestions(topic);
+      setCodeSuggestions(r.suggestions);
+      setSelectedCode(r.suggestions[0] ?? '');
+    } catch (_) {}
+  }
 
   async function fetchImage(name: string, idx: number) {
     setOptions((prev) =>
@@ -187,7 +186,7 @@ export default function CreatePage() {
               <button
                 type="button"
                 disabled={!topic.trim()}
-                onClick={() => setStep('code')}
+                onClick={() => { void loadCodeSuggestions(); setStep('code'); }}
                 className="w-full py-3 bg-blue-500 disabled:opacity-50 text-white font-bold rounded-xl"
               >
                 Next →
@@ -203,6 +202,7 @@ export default function CreatePage() {
                 suggestions={codeSuggestions}
                 selected={selectedCode}
                 onSelect={setSelectedCode}
+                topic={topic}
               />
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep('topic')} className="flex-1 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl">← Back</button>
@@ -325,27 +325,46 @@ export default function CreatePage() {
             <div className="flex flex-col gap-4">
               <h2 className="text-2xl font-bold">Settings</h2>
               <div>
-                <label className="text-sm font-semibold text-gray-700 block mb-2">Auto-close after (optional)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    min={1}
-                    className="w-24 border-2 border-gray-200 rounded-xl p-3 focus:outline-none focus:border-blue-400"
-                    placeholder="—"
-                    value={autoCloseValue}
-                    onChange={(e) => setAutoCloseValue(e.target.value)}
-                  />
-                  <select
-                    className="flex-1 border-2 border-gray-200 rounded-xl p-3 bg-white focus:outline-none focus:border-blue-400"
-                    value={autoCloseUnit}
-                    onChange={(e) => setAutoCloseUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                <label className="text-sm font-semibold text-gray-700 block mb-3">When should the poll close?</label>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAutoCloseValue('')}
+                    className={`text-left p-4 rounded-xl border-2 transition-colors ${!autoCloseValue ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
                   >
-                    <option value="minutes">Minutes</option>
-                    <option value="hours">Hours</option>
-                    <option value="days">Days</option>
-                  </select>
+                    <p className="font-bold">Indefinite</p>
+                    <p className="text-sm text-gray-500 mt-1">You close it manually from the manage panel.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { if (!autoCloseValue) setAutoCloseValue('30'); }}
+                    className={`text-left p-4 rounded-xl border-2 transition-colors ${autoCloseValue ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
+                  >
+                    <p className="font-bold">Auto-close after</p>
+                    <p className="text-sm text-gray-500 mt-1">Poll closes automatically after a set time.</p>
+                  </button>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">Leave blank for manual close only.</p>
+                {autoCloseValue !== '' && (
+                  <div className="flex gap-2 mt-3">
+                    <input
+                      type="number"
+                      min={1}
+                      className="w-24 border-2 border-gray-200 rounded-xl p-3 focus:outline-none focus:border-blue-400"
+                      value={autoCloseValue}
+                      onChange={(e) => setAutoCloseValue(e.target.value)}
+                      autoFocus
+                    />
+                    <select
+                      className="flex-1 border-2 border-gray-200 rounded-xl p-3 bg-white focus:outline-none focus:border-blue-400"
+                      value={autoCloseUnit}
+                      onChange={(e) => setAutoCloseUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                    >
+                      <option value="minutes">Minutes</option>
+                      <option value="hours">Hours</option>
+                      <option value="days">Days</option>
+                    </select>
+                  </div>
+                )}
               </div>
               <div className="flex gap-3 mt-2">
                 <button type="button" onClick={() => setStep('options')} className="flex-1 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl">← Back</button>

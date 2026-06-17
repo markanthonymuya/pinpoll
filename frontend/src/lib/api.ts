@@ -22,8 +22,8 @@ export async function apiFetch<T>(
 }
 
 export const api = {
-  getCodeSuggestions: () =>
-    apiFetch<{ suggestions: string[] }>('/api/polls/any-code/code-suggestions'),
+  getCodeSuggestions: (topic?: string) =>
+    apiFetch<{ suggestions: string[] }>(`/api/polls/any-code/code-suggestions${topic ? `?topic=${encodeURIComponent(topic)}` : ''}`),
 
   createPoll: (body: {
     topic: string;

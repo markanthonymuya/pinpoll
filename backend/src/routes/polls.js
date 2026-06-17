@@ -4,7 +4,7 @@ const { generateSuggestions } = require('../services/codeGen');
 
 router.get('/:code/code-suggestions', async (req, res, next) => {
   try {
-    const suggestions = await generateSuggestions(req.app.locals.pool);
+    const suggestions = await generateSuggestions(req.app.locals.pool, req.query.topic || '');
     res.json({ suggestions });
   } catch (err) { next(err); }
 });
