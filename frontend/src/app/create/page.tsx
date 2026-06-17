@@ -32,14 +32,13 @@ export default function CreatePage() {
   const [error, setError] = useState('');
   const [createdPoll, setCreatedPoll] = useState<Poll | null>(null);
 
-  // router is used after poll creation to navigate to /manage/[code]
-  void router;
-
   useEffect(() => {
-    api.getCodeSuggestions().then((r) => {
-      setCodeSuggestions(r.suggestions);
-      setSelectedCode(r.suggestions[0] ?? '');
-    });
+    api.getCodeSuggestions()
+      .then((r) => {
+        setCodeSuggestions(r.suggestions);
+        setSelectedCode(r.suggestions[0] ?? '');
+      })
+      .catch(() => {});
   }, []);
 
   async function fetchImage(name: string, idx: number) {
@@ -59,10 +58,12 @@ export default function CreatePage() {
       .filter(Boolean);
     if (names.length === 0) return;
     const newOptions: OptionDraft[] = names.map((name) => ({ name, image_url: null, icon_key: null, loadingImage: false }));
-    const startIdx = options.length;
-    setOptions((prev) => [...prev, ...newOptions]);
+    let startIdx = 0;
+    setOptions((prev) => {
+      startIdx = prev.length;
+      return [...prev, ...newOptions];
+    });
     setOptionInput('');
-    // Fetch images for all new options in parallel
     await Promise.all(names.map((_, i) => fetchImage(names[i], startIdx + i)));
   }
 
@@ -147,9 +148,9 @@ export default function CreatePage() {
             <button type="button" onClick={downloadReminderCard} className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors">
               Download reminder card
             </button>
-            <a href={`/manage/${createdPoll.code}`} className="flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors text-center">
+            <button type="button" onClick={() => router.push(`/manage/${createdPoll.code}`)} className="flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors">
               Go to manage →
-            </a>
+            </button>
           </div>
         </div>
       </main>
@@ -216,7 +217,7 @@ export default function CreatePage() {
             <div className="flex flex-col gap-4">
               <h2 className="text-2xl font-bold">Set a password</h2>
               <p className="text-amber-600 text-sm font-medium bg-amber-50 rounded-lg p-3">
-                ⚠️ If you lose this password, you cannot manage or delete your poll. There is no recovery mechanism.
+                ⚠️ If you lose this, you cannot manage or delete your poll.
               </p>
               <div className="relative">
                 <input
