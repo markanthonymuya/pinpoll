@@ -20,7 +20,7 @@ router.post('/:code/vote', async (req, res, next) => {
     if (pollRows.length === 0) return res.status(404).json({ error: 'poll not found' });
 
     const poll = pollRows[0];
-    if (poll.status === 'closed' || poll.status === 'deleted') {
+    if (poll.status === 'closed') {
       return res.status(403).json({ error: 'poll is closed' });
     }
 
@@ -40,34 +40,39 @@ router.post('/:code/vote', async (req, res, next) => {
         cookieToken = crypto.randomUUID();
       }
       session_token = sha256(cookieToken);
-
-      // Check duplicate before transaction
-      const { rows: dupRows } = await pool.query(
-        'SELECT 1 FROM vote_events WHERE poll_id = $1 AND session_token = $2',
-        [poll.id, session_token]
-      );
-      if (dupRows.length > 0) return res.status(409).json({ error: 'already voted' });
     } else {
-      // email_hash mode
       if (!email || !email.trim()) {
         return res.status(400).json({ error: 'email required for verified poll' });
       }
       session_token = sha256(email.trim().toLowerCase());
-
-      const { rows: dupRows } = await pool.query(
-        'SELECT 1 FROM vote_events WHERE poll_id = $1 AND session_token = $2',
-        [poll.id, session_token]
-      );
-      if (dupRows.length > 0) return res.status(409).json({ error: 'already voted' });
     }
 
-    // Atomic transaction: draft→active + lock options + insert vote
+    // Pre-check for duplicate (best-effort fast path before acquiring a transaction)
+    const { rows: dupRows } = await pool.query(
+      'SELECT 1 FROM vote_events WHERE poll_id = $1 AND session_token = $2',
+      [poll.id, session_token]
+    );
+    if (dupRows.length > 0) return res.status(409).json({ error: 'already voted' });
+
+    // Atomic transaction: verify status + draft→active + lock options + insert vote
     const client = await pool.connect();
     let vote_event;
     try {
       await client.query('BEGIN');
 
-      if (poll.status === 'draft') {
+      // Re-read poll status with row lock to prevent concurrent close from being overwritten
+      const { rows: lockedRows } = await client.query(
+        'SELECT status FROM polls WHERE id = $1 FOR UPDATE',
+        [poll.id]
+      );
+      const currentStatus = lockedRows[0].status;
+      if (currentStatus === 'closed' || currentStatus === 'deleted') {
+        await client.query('ROLLBACK');
+        client.release();
+        return res.status(403).json({ error: 'poll is closed' });
+      }
+
+      if (currentStatus === 'draft') {
         await client.query(
           `UPDATE polls SET status = 'active' WHERE id = $1`,
           [poll.id]
@@ -89,10 +94,14 @@ router.post('/:code/vote', async (req, res, next) => {
       vote_event = voteRows[0];
     } catch (e) {
       await client.query('ROLLBACK');
-      throw e;
-    } finally {
       client.release();
+      // Unique constraint violation: concurrent request beat us — treat as duplicate vote
+      if (e.code === '23505') {
+        return res.status(409).json({ error: 'already voted' });
+      }
+      throw e;
     }
+    client.release();
 
     // Set cookie after successful DB write (cookie mode only)
     if (poll.deduplication_mode === 'cookie') {
@@ -100,6 +109,7 @@ router.post('/:code/vote', async (req, res, next) => {
         httpOnly: true,
         sameSite: 'Lax',
         maxAge: 365 * 24 * 60 * 60 * 1000,
+        secure: process.env.NODE_ENV === 'production',
       });
     }
 
