@@ -38,6 +38,7 @@ export interface PollWithOptions {
 
 export type WsEvent =
   | { type: 'vote_cast'; option_id: string }
+  | { type: 'vote_changed'; old_option_id: string; new_option_id: string }
   | { type: 'tally_tap'; option_id: string }
   | { type: 'option_added'; option: PollOption }
   | { type: 'poll_closed' };

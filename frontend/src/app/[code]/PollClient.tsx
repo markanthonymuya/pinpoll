@@ -18,34 +18,38 @@ export default function PollClient({ initialData, code }: Props) {
   const [emailPromptId, setEmailPromptId] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
   const [submittingEmail, setSubmittingEmail] = useState(false);
+  const [voting, setVoting] = useState(false);
 
   const isClosed = poll.status === 'closed' || pollClosed;
   const isVerified = poll.deduplication_mode === 'email_hash';
 
   const castVote = useCallback(async (option_id: string, email?: string) => {
+    if (voting) return;
+    // Don't re-vote same option
+    if (option_id === votedOptionId) return;
     setError('');
+    setVoting(true);
     try {
       await api.castVote(code, { option_id, email });
       setVotedOptionId(option_id);
       setEmailPromptId(null);
     } catch (err: unknown) {
       const e = err as Error & { status?: number };
-      if (e.status === 409) {
-        setError('You have already voted in this poll.');
-        setVotedOptionId(option_id);
-      } else {
-        setError(e.message ?? 'An error occurred. Please try again.');
-      }
+      setError(e.message ?? 'An error occurred. Please try again.');
+    } finally {
+      setVoting(false);
     }
-  }, [code]);
+  }, [code, voting, votedOptionId]);
 
   const handleVote = useCallback((option_id: string) => {
+    // Allow changing vote to a different option
+    if (option_id === votedOptionId) return;
     if (isVerified) {
       setEmailPromptId(option_id);
     } else {
       void castVote(option_id);
     }
-  }, [isVerified, castVote]);
+  }, [isVerified, castVote, votedOptionId]);
 
   async function submitEmail() {
     if (!emailInput.trim() || !emailPromptId) return;
@@ -85,7 +89,8 @@ export default function PollClient({ initialData, code }: Props) {
 
       {votedOptionName && !error && (
         <p className="mb-4 text-green-600 text-sm font-medium">
-          You voted for <strong>{votedOptionName}</strong>.
+          You voted for <strong>{votedOptionName}</strong>.{' '}
+          {!isClosed && <span className="text-gray-400">Tap a different option to change your vote.</span>}
         </p>
       )}
 
@@ -93,7 +98,7 @@ export default function PollClient({ initialData, code }: Props) {
       {emailPromptId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-xl">
-            <h2 className="text-xl font-bold mb-2">Verified vote</h2>
+            <h2 className="text-xl font-bold mb-2">{votedOptionId ? 'Change your vote' : 'Verified vote'}</h2>
             <p className="text-sm text-gray-500 mb-4">
               Your email address is never stored. An anonymous fingerprint is used solely to prevent duplicate votes.
             </p>
@@ -120,7 +125,7 @@ export default function PollClient({ initialData, code }: Props) {
                 disabled={!emailInput.trim() || submittingEmail}
                 className="flex-1 py-3 bg-blue-500 disabled:opacity-50 text-white font-bold rounded-xl"
               >
-                {submittingEmail ? 'Submitting…' : 'Submit Vote'}
+                {submittingEmail ? 'Submitting…' : votedOptionId ? 'Change Vote' : 'Submit Vote'}
               </button>
             </div>
           </div>
@@ -132,6 +137,7 @@ export default function PollClient({ initialData, code }: Props) {
         onVote={isClosed ? undefined : handleVote}
         votedOptionId={votedOptionId}
         pollClosed={isClosed}
+        voting={voting}
       />
 
       <p className="mt-8 text-xs text-gray-400 text-center">

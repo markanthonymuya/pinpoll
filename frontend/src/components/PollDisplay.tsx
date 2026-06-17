@@ -11,9 +11,10 @@ interface Props {
   pollClosed?: boolean;
   showTally?: boolean;
   onTally?: (id: string) => void;
+  voting?: boolean;
 }
 
-export function PollDisplay({ options, onVote, votedOptionId, pollClosed, showTally, onTally }: Props) {
+export function PollDisplay({ options, onVote, votedOptionId, pollClosed, showTally, onTally, voting }: Props) {
   const [isLargeScreen, setIsLargeScreen] = useState(true);
 
   useEffect(() => {
@@ -26,7 +27,7 @@ export function PollDisplay({ options, onVote, votedOptionId, pollClosed, showTa
 
   const useGrid = isLargeScreen && options.length <= 12;
   const total = options.reduce((s, o) => s + o.vote_count, 0);
-  const disabled = !!pollClosed;
+  const disabled = !!pollClosed || !!voting;
 
   if (useGrid) {
     return (

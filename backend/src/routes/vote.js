@@ -47,20 +47,14 @@ router.post('/:code/vote', async (req, res, next) => {
       session_token = sha256(email.trim().toLowerCase());
     }
 
-    // Pre-check for duplicate (best-effort fast path before acquiring a transaction)
-    const { rows: dupRows } = await pool.query(
-      'SELECT 1 FROM vote_events WHERE poll_id = $1 AND session_token = $2',
-      [poll.id, session_token]
-    );
-    if (dupRows.length > 0) return res.status(409).json({ error: 'already voted' });
-
-    // Atomic transaction: verify status + draft→active + lock options + insert vote
+    // Atomic transaction: verify status + draft→active + upsert vote
     const client = await pool.connect();
     let vote_event;
+    let old_option_id = null;
     try {
       await client.query('BEGIN');
 
-      // Re-read poll status with row lock to prevent concurrent close from being overwritten
+      // Re-read poll status with row lock
       const { rows: lockedRows } = await client.query(
         'SELECT status FROM polls WHERE id = $1 FOR UPDATE',
         [poll.id]
@@ -73,19 +67,24 @@ router.post('/:code/vote', async (req, res, next) => {
       }
 
       if (currentStatus === 'draft') {
-        await client.query(
-          `UPDATE polls SET status = 'active' WHERE id = $1`,
-          [poll.id]
-        );
-        await client.query(
-          `UPDATE options SET locked = TRUE WHERE poll_id = $1`,
-          [poll.id]
-        );
+        await client.query(`UPDATE polls SET status = 'active' WHERE id = $1`, [poll.id]);
+        await client.query(`UPDATE options SET locked = TRUE WHERE poll_id = $1`, [poll.id]);
       }
 
+      // Check if voter already has a vote (to detect change)
+      const { rows: existingRows } = await client.query(
+        'SELECT option_id FROM vote_events WHERE poll_id = $1 AND session_token = $2',
+        [poll.id, session_token]
+      );
+      if (existingRows.length > 0) {
+        old_option_id = existingRows[0].option_id;
+      }
+
+      // Upsert: insert or update existing vote
       const { rows: voteRows } = await client.query(
         `INSERT INTO vote_events (poll_id, option_id, source, session_token)
          VALUES ($1, $2, 'self_vote', $3)
+         ON CONFLICT (poll_id, session_token) DO UPDATE SET option_id = EXCLUDED.option_id
          RETURNING id, option_id, source, timestamp`,
         [poll.id, option_id, session_token]
       );
@@ -95,10 +94,6 @@ router.post('/:code/vote', async (req, res, next) => {
     } catch (e) {
       await client.query('ROLLBACK');
       client.release();
-      // Unique constraint violation: concurrent request beat us — treat as duplicate vote
-      if (e.code === '23505') {
-        return res.status(409).json({ error: 'already voted' });
-      }
       throw e;
     }
     client.release();
@@ -113,13 +108,19 @@ router.post('/:code/vote', async (req, res, next) => {
       });
     }
 
-    // Broadcast only after successful DB write
+    // Broadcast WS event
     const wsServer = req.app.locals.wsServer;
     if (wsServer) {
-      wsServer.broadcast(code, { type: 'vote_cast', option_id, vote_event });
+      if (old_option_id && old_option_id !== option_id) {
+        wsServer.broadcast(code, { type: 'vote_changed', old_option_id, new_option_id: option_id });
+      } else if (!old_option_id) {
+        wsServer.broadcast(code, { type: 'vote_cast', option_id, vote_event });
+      }
+      // Same option voted again: no broadcast needed
     }
 
-    res.status(201).json({ vote_event });
+    const changed = old_option_id !== null && old_option_id !== option_id;
+    res.status(changed ? 200 : 201).json({ vote_event, changed });
   } catch (err) { next(err); }
 });
 
