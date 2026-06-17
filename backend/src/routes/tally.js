@@ -20,7 +20,7 @@ router.post('/:code/tally', async (req, res, next) => {
     const ok = await bcrypt.compare(password || '', poll.password_hash);
     if (!ok) return res.status(401).json({ error: 'unauthorized' });
 
-    if (poll.status === 'closed' || poll.status === 'deleted') {
+    if (poll.status === 'closed' || poll.status === 'deleted' || poll.status === 'draft') {
       return res.status(403).json({ error: 'poll is closed' });
     }
 

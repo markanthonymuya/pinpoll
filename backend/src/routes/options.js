@@ -8,7 +8,7 @@ async function verifyInitiator(pool, code, password) {
   );
   if (rows.length === 0) return { error: 'not_found', status: 404 };
   const poll = rows[0];
-  const ok = await bcrypt.compare(password, poll.password_hash);
+  const ok = await bcrypt.compare(password || '', poll.password_hash);
   if (!ok) return { error: 'unauthorized', status: 401 };
   return { poll };
 }

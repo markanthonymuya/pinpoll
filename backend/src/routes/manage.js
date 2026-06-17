@@ -57,6 +57,9 @@ router.delete('/:code', async (req, res, next) => {
       [auth.poll.id]
     );
 
+    const wsServer = req.app.locals.wsServer;
+    if (wsServer) wsServer.broadcast(req.params.code, { type: 'poll_closed' });
+
     res.status(204).end();
   } catch (err) { next(err); }
 });
