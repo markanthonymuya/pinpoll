@@ -17,6 +17,7 @@ export default function ManagePage({ params }: { params: { code: string } }) {
   const [closing, setClosing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteCodeEntry, setDeleteCodeEntry] = useState('');
   const [error, setError] = useState('');
   const [postCloseAction, setPostCloseAction] = useState<'keep' | 'delete' | null>(null);
 
@@ -125,6 +126,13 @@ export default function ManagePage({ params }: { params: { code: string } }) {
 
       {error && <p className="mb-4 text-red-500 text-sm">{error}</p>}
 
+      {/* After close: kept confirmation */}
+      {isClosed && postCloseAction === 'keep' && (
+        <div className="mb-8 bg-green-50 border border-green-200 rounded-2xl p-6">
+          <p className="font-semibold text-green-800">Poll kept public. Results remain accessible at the public URL.</p>
+        </div>
+      )}
+
       {/* After close: show keep/delete options */}
       {isClosed && !postCloseAction && (
         <div className="mb-8 bg-white border-2 border-gray-200 rounded-2xl p-6">
@@ -144,10 +152,19 @@ export default function ManagePage({ params }: { params: { code: string } }) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-xl">
             <h2 className="text-xl font-bold mb-2 text-red-600">Permanently delete this poll?</h2>
-            <p className="text-sm text-gray-500 mb-6">All votes and data will be wiped. This cannot be undone.</p>
+            <p className="text-sm text-gray-500 mb-4">All votes and data will be wiped. This cannot be undone.</p>
+            <p className="text-sm font-medium mb-2">Type <span className="font-mono bg-gray-100 px-1 rounded">{code}</span> to confirm:</p>
+            <input
+              type="text"
+              className="w-full border-2 border-gray-200 rounded-xl p-3 mb-4 focus:outline-none focus:border-red-400 font-mono"
+              placeholder={code}
+              value={deleteCodeEntry}
+              onChange={(e) => setDeleteCodeEntry(e.target.value)}
+              autoFocus
+            />
             <div className="flex gap-3">
-              <button type="button" onClick={() => setDeleteConfirm(false)} className="flex-1 py-3 bg-gray-100 rounded-xl font-semibold">Cancel</button>
-              <button type="button" onClick={handleDelete} disabled={deleting} className="flex-1 py-3 bg-red-500 disabled:opacity-50 text-white font-bold rounded-xl">
+              <button type="button" onClick={() => { setDeleteConfirm(false); setDeleteCodeEntry(''); }} className="flex-1 py-3 bg-gray-100 rounded-xl font-semibold">Cancel</button>
+              <button type="button" onClick={handleDelete} disabled={deleting || deleteCodeEntry !== code} className="flex-1 py-3 bg-red-500 disabled:opacity-50 text-white font-bold rounded-xl">
                 {deleting ? 'Deleting…' : 'Delete Forever'}
               </button>
             </div>
