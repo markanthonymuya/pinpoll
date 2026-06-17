@@ -29,15 +29,19 @@ export default function CreatePage() {
   const [autoCloseUnit, setAutoCloseUnit] = useState<'minutes' | 'hours' | 'days'>('hours');
   const [transparencyChecked, setTransparencyChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [error, setError] = useState('');
   const [createdPoll, setCreatedPoll] = useState<Poll | null>(null);
 
-  async function loadCodeSuggestions() {
+  async function goToCodeStep() {
+    setLoadingSuggestions(true);
     try {
       const r = await api.getCodeSuggestions(topic);
       setCodeSuggestions(r.suggestions);
       setSelectedCode(r.suggestions[0] ?? '');
     } catch (_) {}
+    setLoadingSuggestions(false);
+    setStep('code');
   }
 
   async function fetchImage(name: string, idx: number) {
@@ -185,11 +189,11 @@ export default function CreatePage() {
               />
               <button
                 type="button"
-                disabled={!topic.trim()}
-                onClick={() => { void loadCodeSuggestions(); setStep('code'); }}
+                disabled={!topic.trim() || loadingSuggestions}
+                onClick={() => void goToCodeStep()}
                 className="w-full py-3 bg-blue-500 disabled:opacity-50 text-white font-bold rounded-xl"
               >
-                Next →
+                {loadingSuggestions ? 'Generating link…' : 'Next →'}
               </button>
             </div>
           )}
