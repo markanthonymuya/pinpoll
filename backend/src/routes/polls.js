@@ -61,4 +61,25 @@ router.get('/:code', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/:code/events', async (req, res, next) => {
+  try {
+    const pool = req.app.locals.pool;
+    const { rows: pollRows } = await pool.query(
+      `SELECT id FROM polls WHERE code = $1 AND visibility = 'public'`,
+      [req.params.code]
+    );
+    if (pollRows.length === 0) return res.status(404).json({ error: 'poll not found' });
+    const { rows: events } = await pool.query(
+      `SELECT v.id, v.source, o.name AS option_name, v.timestamp
+       FROM vote_events v
+       JOIN options o ON o.id = v.option_id
+       WHERE v.poll_id = $1
+       ORDER BY v.timestamp DESC
+       LIMIT 500`,
+      [pollRows[0].id]
+    );
+    res.json({ events });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;
