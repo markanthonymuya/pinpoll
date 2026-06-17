@@ -1,38 +1,23 @@
 import Link from 'next/link';
+import HomePollWidget from './HomePollWidget';
+import type { PollWithOptions } from '@/lib/types';
 
-const DEMO_OPTIONS = [
-  { name: 'Python', pct: 42 },
-  { name: 'JavaScript', pct: 31 },
-  { name: 'Rust', pct: 15 },
-  { name: 'Go', pct: 12 },
-];
-
-function DemoCard({ name, pct }: { name: string; pct: number }) {
-  const color = ['bg-blue-400', 'bg-green-400', 'bg-orange-400', 'bg-purple-400'][
-    DEMO_OPTIONS.findIndex((o) => o.name === name) % 4
-  ];
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-      <div className={`${color} h-24 flex items-center justify-center`}>
-        <span className="text-white text-3xl font-bold">{name.charAt(0)}</span>
-      </div>
-      <div className="p-3">
-        <p className="text-sm font-semibold text-gray-700 mb-1">{name}</p>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 bg-gray-100 rounded-full">
-            <div
-              className="h-full bg-blue-500 rounded-full transition-all duration-1000"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <span className="text-xs text-gray-500">{pct}</span>
-        </div>
-      </div>
-    </div>
-  );
+async function getHomePoll(): Promise<PollWithOptions | null> {
+  try {
+    const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+    const res = await fetch(`${base}/api/homepage-poll`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return null;
+    return res.json() as Promise<PollWithOptions>;
+  } catch {
+    return null;
+  }
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  const homePoll = await getHomePoll();
+
   return (
     <main>
       {/* Hero */}
@@ -52,9 +37,14 @@ export default function HomePage() {
           Create a Poll →
         </Link>
 
-        {/* Animated demo grid */}
-        <div className="mt-16 w-full max-w-lg grid grid-cols-2 gap-4 opacity-80">
-          {DEMO_OPTIONS.map((o) => <DemoCard key={o.name} {...o} />)}
+        {/* Live poll widget (or static demo fallback) */}
+        <div className="mt-16 w-full max-w-lg">
+          {homePoll && (
+            <p className="text-xs text-center text-gray-400 mb-2 uppercase tracking-wide font-semibold">
+              Live poll — vote below
+            </p>
+          )}
+          <HomePollWidget initialData={homePoll} />
         </div>
       </section>
 

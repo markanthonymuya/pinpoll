@@ -17,6 +17,30 @@ function createApp(pool, wsServer) {
   app.locals.pool = pool;
   app.locals.wsServer = wsServer;
 
+  // Homepage featured poll — resolved from HOMEPAGE_POLL_CODE env var
+  app.get('/api/homepage-poll', async (req, res) => {
+    const code = process.env.HOMEPAGE_POLL_CODE;
+    if (!code) return res.status(404).json({ error: 'not configured' });
+    try {
+      const { rows: pollRows } = await req.app.locals.pool.query(
+        `SELECT id, code, topic, status, deduplication_mode, created_at, closed_at
+         FROM polls WHERE code = $1 AND visibility = 'public'`,
+        [code]
+      );
+      if (pollRows.length === 0) return res.status(404).json({ error: 'poll not found' });
+      const poll = pollRows[0];
+      const { rows: options } = await req.app.locals.pool.query(
+        `SELECT o.id, o.name, o.display_order, o.locked, COUNT(v.id)::int AS vote_count
+         FROM options o LEFT JOIN vote_events v ON v.option_id = o.id
+         WHERE o.poll_id = $1 GROUP BY o.id ORDER BY o.display_order ASC`,
+        [poll.id]
+      );
+      res.json({ poll, options });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.use('/api/polls', require('./routes/polls'));
   app.use('/api/polls', require('./routes/options'));
   app.use('/api/polls', require('./routes/vote'));
