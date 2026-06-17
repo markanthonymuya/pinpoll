@@ -47,7 +47,9 @@ router.get('/polls', async (req, res, next) => {
     const pool = req.app.locals.pool;
     const { rows } = await pool.query(
       `SELECT p.id, p.code, p.topic, p.status, p.deduplication_mode, p.created_at, p.closed_at,
-              COUNT(v.id)::int AS vote_count
+              COUNT(v.id)::int AS vote_count,
+              COUNT(CASE WHEN v.source = 'self_vote' THEN 1 END)::int AS online_votes,
+              COUNT(CASE WHEN v.source = 'initiator_tap' THEN 1 END)::int AS tally_votes
        FROM polls p
        LEFT JOIN vote_events v ON v.poll_id = p.id
        WHERE p.visibility != 'deleted'
