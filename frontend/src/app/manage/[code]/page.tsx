@@ -22,7 +22,6 @@ export default function ManagePage({ params }: { params: { code: string } }) {
   const [postCloseAction, setPostCloseAction] = useState<'keep' | 'delete' | null>(null);
   const [options, setOptions] = useState<PollOption[]>([]);
   const [wsClosed, setWsClosed] = useState(false);
-  const [mode, setMode] = useState<'tally' | 'online' | null>(null);
 
   const isClosed = poll?.status === 'closed' || wsClosed;
 
@@ -136,35 +135,6 @@ export default function ManagePage({ params }: { params: { code: string } }) {
     );
   }
 
-  if (!mode) {
-    return (
-      <main className="min-h-screen flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl shadow border border-gray-200 p-8 w-full max-w-md">
-          <h1 className="text-2xl font-bold mb-2">{poll?.topic}</h1>
-          <p className="text-gray-500 text-sm mb-6">How will votes be collected for this poll?</p>
-          <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => setMode('tally')}
-              className="text-left p-4 rounded-xl border-2 border-gray-200 hover:border-blue-400 transition-colors"
-            >
-              <p className="font-bold">Raise hands / Discussion</p>
-              <p className="text-sm text-gray-500 mt-1">You tap +1 on each option as the audience raises hands or speaks.</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('online')}
-              className="text-left p-4 rounded-xl border-2 border-gray-200 hover:border-blue-400 transition-colors"
-            >
-              <p className="font-bold">Online voting</p>
-              <p className="text-sm text-gray-500 mt-1">Audience votes via the public link on their own devices. You monitor results here.</p>
-            </button>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex flex-wrap items-center gap-4 mb-8">
@@ -172,9 +142,6 @@ export default function ManagePage({ params }: { params: { code: string } }) {
         <span className={`px-3 py-1 text-xs font-bold rounded-full ${isClosed ? 'bg-gray-200 text-gray-600' : 'bg-green-100 text-green-700'}`}>
           {isClosed ? 'CLOSED' : 'ACTIVE'}
         </span>
-        <button type="button" onClick={() => setMode(null)} className="text-xs text-gray-400 hover:text-blue-500 underline">
-          {mode === 'tally' ? 'Raise hands mode' : 'Online mode'} · switch
-        </button>
       </div>
 
       {error && <p className="mb-4 text-red-500 text-sm">{error}</p>}
@@ -229,7 +196,7 @@ export default function ManagePage({ params }: { params: { code: string } }) {
       <PollDisplay
         options={options}
         pollClosed={isClosed}
-        showTally={mode === 'tally' && !isClosed}
+        showTally={!isClosed}
         onTally={handleTally}
       />
 
