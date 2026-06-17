@@ -4,7 +4,10 @@ const { runMigrations } = require('../src/db/migrate');
 const bcrypt = require('bcrypt');
 
 async function createTestPool() {
-  const pool = new Pool({ connectionString: process.env.TEST_DATABASE_URL });
+  const pool = new Pool({
+    connectionString: process.env.TEST_DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
   await runMigrations(pool);
   return pool;
 }
