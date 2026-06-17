@@ -3,4 +3,5 @@ module.exports = {
   testTimeout: 30000,
   setupFilesAfterFramework: [],
   globalSetup: './tests/helpers.js',
+  maxWorkers: 1,
 };

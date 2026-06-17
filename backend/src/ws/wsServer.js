@@ -1,32 +1,38 @@
-const { WebSocketServer } = require('ws');
+const WebSocket = require('ws');
 
 function createWsServer() {
-  const wss = new WebSocketServer({ noServer: true });
-  const rooms = new Map();
+  const wss = new WebSocket.Server({ noServer: true });
+  const rooms = new Map(); // code → Set<WebSocket>
 
-  wss.on('connection', (ws, req) => {
-    const url = new URL(req.url, 'ws://localhost');
-    const code = url.searchParams.get('code');
-    if (code) {
-      if (!rooms.has(code)) rooms.set(code, new Set());
-      rooms.get(code).add(ws);
-      ws.on('close', () => {
-        const room = rooms.get(code);
-        if (room) {
-          room.delete(ws);
-          if (room.size === 0) rooms.delete(code);
+  wss.on('connection', (ws) => {
+    let joinedCode = null;
+
+    ws.on('message', (raw) => {
+      try {
+        const msg = JSON.parse(raw);
+        if (msg.type === 'join' && msg.code) {
+          joinedCode = msg.code;
+          if (!rooms.has(joinedCode)) rooms.set(joinedCode, new Set());
+          rooms.get(joinedCode).add(ws);
         }
-      });
-    }
+      } catch (_) {}
+    });
+
+    ws.on('close', () => {
+      if (joinedCode && rooms.has(joinedCode)) {
+        rooms.get(joinedCode).delete(ws);
+        if (rooms.get(joinedCode).size === 0) rooms.delete(joinedCode);
+      }
+    });
   });
 
-  wss.broadcast = function(code, data) {
-    const room = rooms.get(code);
-    if (!room) return;
-    const msg = JSON.stringify(data);
-    for (const client of room) {
-      if (client.readyState === 1) client.send(msg);
-    }
+  wss.broadcast = (code, payload) => {
+    const clients = rooms.get(code);
+    if (!clients) return;
+    const data = JSON.stringify(payload);
+    clients.forEach((ws) => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(data);
+    });
   };
 
   return wss;
