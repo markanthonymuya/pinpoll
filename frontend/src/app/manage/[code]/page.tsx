@@ -28,6 +28,12 @@ export default function ManagePage({ params }: { params: { code: string } }) {
   const handleWsEvent = useCallback((e: WsEvent) => {
     if (e.type === 'vote_cast') {
       setOptions(prev => prev.map(o => o.id === e.option_id ? { ...o, vote_count: o.vote_count + 1 } : o));
+    } else if (e.type === 'vote_changed') {
+      setOptions(prev => prev.map(o => {
+        if (o.id === e.old_option_id) return { ...o, vote_count: Math.max(0, o.vote_count - 1) };
+        if (o.id === e.new_option_id) return { ...o, vote_count: o.vote_count + 1 };
+        return o;
+      }));
     } else if (e.type === 'option_added') {
       setOptions(prev => [...prev, e.option]);
     } else if (e.type === 'poll_closed') {

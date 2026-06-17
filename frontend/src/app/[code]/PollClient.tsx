@@ -12,7 +12,7 @@ interface Props {
 
 export default function PollClient({ initialData, code }: Props) {
   const { poll } = initialData;
-  const { options, pollClosed, connected } = usePollVoteCounts(initialData.options, code);
+  const { options, pollClosed, connected, applyVoteChange } = usePollVoteCounts(initialData.options, code);
   const [votedOptionId, setVotedOptionId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [emailPromptId, setEmailPromptId] = useState<string | null>(null);
@@ -25,21 +25,25 @@ export default function PollClient({ initialData, code }: Props) {
 
   const castVote = useCallback(async (option_id: string, email?: string) => {
     if (voting) return;
-    // Don't re-vote same option
     if (option_id === votedOptionId) return;
+    const prevVotedId = votedOptionId;
     setError('');
     setVoting(true);
+    // Optimistic: immediately adjust counts so the voter sees instant feedback
+    if (prevVotedId) applyVoteChange(prevVotedId, option_id);
     try {
       await api.castVote(code, { option_id, email });
       setVotedOptionId(option_id);
       setEmailPromptId(null);
     } catch (err: unknown) {
+      // Revert optimistic change on failure
+      if (prevVotedId) applyVoteChange(option_id, prevVotedId);
       const e = err as Error & { status?: number };
       setError(e.message ?? 'An error occurred. Please try again.');
     } finally {
       setVoting(false);
     }
-  }, [code, voting, votedOptionId]);
+  }, [code, voting, votedOptionId, applyVoteChange]);
 
   const handleVote = useCallback((option_id: string) => {
     // Allow changing vote to a different option

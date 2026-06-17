@@ -46,6 +46,10 @@ export function usePollVoteCounts(initialOptions: PollOption[], code: string) {
     pollClosed: false,
   });
 
+  const applyVoteChange = useCallback((old_option_id: string, new_option_id: string) => {
+    dispatch({ type: 'vote_change', old_option_id, new_option_id });
+  }, []);
+
   const handleEvent = useCallback(
     (e: WsEvent) => {
       if (e.type === 'vote_cast' || e.type === 'tally_tap') {
@@ -63,5 +67,5 @@ export function usePollVoteCounts(initialOptions: PollOption[], code: string) {
 
   const { connected } = useWebSocket(code, handleEvent);
 
-  return { options: state.options, pollClosed: state.pollClosed, connected };
+  return { options: state.options, pollClosed: state.pollClosed, connected, applyVoteChange };
 }
