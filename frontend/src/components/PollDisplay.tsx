@@ -39,6 +39,8 @@ export function PollDisplay({ options, onVote, votedOptionId, pollClosed, showTa
             onVote={onVote}
             voted={votedOptionId === opt.id}
             disabled={disabled}
+            showTally={showTally}
+            onTally={onTally}
           />
         ))}
       </div>
