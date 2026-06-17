@@ -135,14 +135,25 @@ router.delete('/polls/:code', async (req, res, next) => {
       [poll.id]
     );
 
-    await pool.query(
-      `INSERT INTO admin_deletion_log (poll_code, poll_topic, total_votes)
-       VALUES ($1, $2, $3)`,
-      [req.params.code, poll.topic, countRows[0].total]
-    );
+    const pdfDownloaded = req.body.pdf_downloaded === true;
 
-    // Hard delete — CASCADE removes options and vote_events automatically
-    await pool.query(`DELETE FROM polls WHERE id = $1`, [poll.id]);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO admin_deletion_log (poll_code, poll_topic, total_votes, pdf_downloaded)
+         VALUES ($1, $2, $3, $4)`,
+        [req.params.code, poll.topic, countRows[0].total, pdfDownloaded]
+      );
+      // Hard delete — CASCADE removes options and vote_events automatically
+      await client.query(`DELETE FROM polls WHERE id = $1`, [poll.id]);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      client.release();
+      throw e;
+    }
+    client.release();
 
     res.status(204).end();
   } catch (err) { next(err); }
