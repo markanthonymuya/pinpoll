@@ -66,7 +66,7 @@ router.post('/:code/vote', async (req, res, next) => {
         [poll.id]
       );
       const currentStatus = lockedRows[0].status;
-      if (currentStatus === 'closed' || currentStatus === 'deleted') {
+      if (currentStatus === 'closed') {
         await client.query('ROLLBACK');
         client.release();
         return res.status(403).json({ error: 'poll is closed' });
