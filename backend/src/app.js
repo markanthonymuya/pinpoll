@@ -1,12 +1,14 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 
 function createApp(pool, wsServer) {
   const app = express();
 
   app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
   app.use(express.json());
+  app.use(cookieParser());
 
   app.locals.pool = pool;
   app.locals.wsServer = wsServer;
