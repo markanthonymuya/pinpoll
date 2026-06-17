@@ -42,6 +42,23 @@ router.get('/dashboard', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/polls', async (req, res, next) => {
+  try {
+    const pool = req.app.locals.pool;
+    const { rows } = await pool.query(
+      `SELECT p.id, p.code, p.topic, p.status, p.deduplication_mode, p.created_at, p.closed_at,
+              COUNT(v.id)::int AS vote_count
+       FROM polls p
+       LEFT JOIN vote_events v ON v.poll_id = p.id
+       WHERE p.visibility != 'deleted'
+       GROUP BY p.id
+       ORDER BY p.created_at DESC
+       LIMIT 200`
+    );
+    res.json({ polls: rows });
+  } catch (err) { next(err); }
+});
+
 router.get('/polls/:code', async (req, res, next) => {
   try {
     const pool = req.app.locals.pool;
