@@ -69,7 +69,7 @@ export default function ManualPage() {
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 text-sm space-y-3">
               <div>
                 <p className="font-bold text-blue-700 mb-1">Public link — share this freely</p>
-                <p className="font-mono text-blue-600">pinpoll.app/poll/bright-J3M7</p>
+                <p className="font-mono text-blue-600">pinpoll.markmuya.com/bright-J3M7</p>
               </div>
               <div>
                 <p className="font-bold text-gray-600 mb-1">Manage link — keep private</p>

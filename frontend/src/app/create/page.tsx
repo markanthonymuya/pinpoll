@@ -115,7 +115,7 @@ export default function CreatePage() {
       'PinPoll — Your Poll Details',
       '',
       `Topic: ${createdPoll.topic}`,
-      `Public link: ${window.location.origin}/poll/${createdPoll.code}`,
+      `Public link: ${window.location.origin}/${createdPoll.code}`,
       `Manage link: ${window.location.origin}/manage/${createdPoll.code}`,
       '',
       'Keep this file safe — you cannot recover your password.',
@@ -139,7 +139,7 @@ export default function CreatePage() {
             <div className="bg-blue-50 rounded-lg p-4">
               <p className="text-xs text-blue-400 font-semibold mb-1">PUBLIC LINK (share with audience)</p>
               <p className="font-mono text-sm break-all">{origin}/poll/{createdPoll.code}</p>
-              <button type="button" onClick={() => navigator.clipboard.writeText(`${origin}/poll/${createdPoll.code}`)} className="text-xs text-blue-500 hover:underline mt-1">Copy</button>
+              <button type="button" onClick={() => navigator.clipboard.writeText(`${origin}/${createdPoll.code}`)} className="text-xs text-blue-500 hover:underline mt-1">Copy</button>
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-xs text-gray-400 font-semibold mb-1">MANAGE LINK (keep private)</p>

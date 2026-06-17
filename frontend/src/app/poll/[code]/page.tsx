@@ -1,9 +1,5 @@
-import { notFound } from 'next/navigation';
-import { api } from '@/lib/api';
-import PollClient from './PollClient';
+import { redirect } from 'next/navigation';
 
-export default async function PollPage({ params }: { params: { code: string } }) {
-  const data = await api.getPoll(params.code).catch(() => null);
-  if (!data) notFound();
-  return <PollClient initialData={data} code={params.code} />;
+export default function PollRedirect({ params }: { params: { code: string } }) {
+  redirect(`/${params.code}`);
 }
