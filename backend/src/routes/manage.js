@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 
 async function verifyPassword(pool, code, password) {
   const { rows } = await pool.query(
-    `SELECT id, status, password_hash FROM polls WHERE code = $1 AND visibility = 'public'`,
+    `SELECT id, status, password_hash FROM polls WHERE code = $1`,
     [code]
   );
   if (rows.length === 0) return { error: 'not_found', status: 404 };
